@@ -1,11 +1,10 @@
 from django.core.paginator import Paginator
-from django.conf import settings
 from django.shortcuts import get_object_or_404, render
-
-from .models import Group, Post
-
+from django.http import HttpResponseRedirect
 from django.contrib.auth import get_user_model
 
+from .models import Group, Post
+from .forms import PostForm
 
 User = get_user_model()
 
@@ -56,3 +55,32 @@ def post_detail(request, post_id):
         'num_posts': num_posts.count
     }
     return render(request, 'posts/post_detail.html', context)
+
+
+def post_create(request):
+    if request.method == 'POST':
+        form = PostForm(request.POST)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            form.save()
+            return HttpResponseRedirect(f'/profile/{request.user.username}/')
+        return render(request, 'posts/create_post.html', {'form': form})
+    form = PostForm()
+    return render(request, 'posts/create_post.html', {'form': form})
+
+
+def post_edit(request, post_id):
+    post = get_object_or_404(Post, pk=post_id)
+    is_edit = True
+    if post.author == request.user:
+        if request.method == 'POST':
+            form = PostForm(request.POST, instance=post)
+            if form.is_valid():
+                form.save()
+                return HttpResponseRedirect(f'/profile/{request.user.username}/')
+            return render(request, 'posts/create_post.html', {'form': form, 'is_edit': is_edit})
+    else:
+        return HttpResponseRedirect(f'/posts/{post_id}/')
+    form = PostForm(instance=post)
+    return render(request, 'posts/create_post.html', {'form': form})
